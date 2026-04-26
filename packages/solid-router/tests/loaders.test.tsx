@@ -741,6 +741,58 @@ test('clears pendingTimeout when match resolves', async () => {
   expect(fooPendingComponentOnMountMock).not.toHaveBeenCalled()
 })
 
+test('reproducer #6777 - loader data should not go undefined during pending state', async () => {
+  const rootRoute = createRootRoute({})
+
+  const indexRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/',
+    loader: async () => {
+      await sleep(WAIT_TIME)
+      return 'index data'
+    },
+    component: () => {
+      const data = indexRoute.useLoaderData()
+      return (
+        <div>
+          <Link data-testid="link-to-foo" to="/foo">
+            foo
+          </Link>
+          <span data-testid="loader-data">{data()}</span>
+        </div>
+      )
+    },
+  })
+
+  const fooRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/foo',
+    loader: async () => {
+      await sleep(WAIT_TIME * 5)
+      return 'foo data'
+    },
+    pendingMs: 0,
+    pendingComponent: () => <div data-testid="pending">Pending...</div>,
+    component: () => <div>Foo page</div>,
+  })
+
+  const routeTree = rootRoute.addChildren([indexRoute, fooRoute])
+  const router = createRouter({ routeTree })
+
+  render(() => <RouterProvider router={router} />)
+  await router.load()
+
+  const loaderData = await screen.findByTestId('loader-data')
+  expect(loaderData).toHaveTextContent('index data')
+
+  const fooLink = await screen.findByTestId('link-to-foo')
+  fireEvent.click(fooLink)
+
+  // During the pending state, the previously loaded data should still be visible
+  await screen.findByTestId('pending')
+  expect(loaderData).toHaveTextContent('index data')
+})
+
 test('cancelMatches after pending timeout', async () => {
   function getPendingComponent(onMount: () => void) {
     const PendingComponent = () => {
