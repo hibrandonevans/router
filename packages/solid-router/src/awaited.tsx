@@ -32,7 +32,6 @@ export function Await<T>(
 ) {
   const [resource] = Solid.createResource(
     () => defer(props.promise),
-    // Simple passthrough - just return the promise for Solid to await
     (p) => p,
     {
       deferStream: true,
@@ -40,8 +39,10 @@ export function Await<T>(
   )
 
   return (
-    <Solid.Show fallback={props.fallback} when={resource()}>
-      {(data) => props.children(data())}
-    </Solid.Show>
+    <Solid.Suspense fallback={props.fallback}>
+      <Solid.Show when={resource()}>
+        {(data) => props.children(data())}
+      </Solid.Show>
+    </Solid.Suspense>
   )
 }
