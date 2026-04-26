@@ -163,7 +163,13 @@ export const Match = (props: { matchId: string }) => {
                         <Solid.Show
                           when={!(isServer ?? router.isServer)}
                           fallback={
-                            <Dynamic component={resolvePendingComponent()} />
+                            // For data-only routes, data is fetched on server but component
+                            // renders client-only. Since data is already available on hydration,
+                            // the client renders the real component immediately — not the pending
+                            // component. Rendering pending here would cause a hydration mismatch.
+                            currentMatchState().ssr !== 'data-only' ? (
+                              <Dynamic component={resolvePendingComponent()} />
+                            ) : undefined
                           }
                         >
                           <MatchInner />
