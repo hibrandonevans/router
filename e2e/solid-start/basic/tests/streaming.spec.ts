@@ -1,4 +1,4 @@
-import { expect } from '@playwright/test'
+import { expect, type Response } from '@playwright/test'
 import { test } from '@tanstack/router-e2e-utils'
 
 test('Navigating to deferred route', async ({ page }) => {
@@ -32,4 +32,43 @@ test('streaming loader data', async ({ page }) => {
 
   await expect(page.getByTestId('promise-data')).toContainText('promise-data')
   await expect(page.getByTestId('stream-data')).toContainText('stream-data')
+})
+
+test.describe('Await without Suspense', () => {
+  test.skip(({ spaMode }: { spaMode: boolean }) => spaMode, 'SSR only')
+
+  test('streams fallback then deferred data', async ({ page }) => {
+    const chunks: Array<string> = []
+    let response: Response | null = null
+
+    page.on('response', (res) => {
+      if (res.url().includes('/deferred-without-suspense')) {
+        response = res
+      }
+    })
+
+    await page.goto('/deferred-without-suspense')
+
+    // The deferred data should eventually be rendered
+    await expect(page.getByTestId('deferred-data')).toContainText(
+      'Hello deferred!',
+    )
+  })
+
+  test('initial HTML includes fallback markup', async ({ page }) => {
+    // Intercept the raw HTML response to check streaming
+    const responsePromise = page.waitForResponse((res) =>
+      res.url().includes('/deferred-without-suspense'),
+    )
+
+    await page.goto('/deferred-without-suspense')
+
+    const response = await responsePromise
+    const body = await response.text()
+
+    // The initial streamed HTML should contain the fallback
+    expect(body).toContain('Loading...')
+    // And the resolved data should also be in the full response
+    expect(body).toContain('Hello deferred!')
+  })
 })
