@@ -31,9 +31,8 @@ export function Await<T>(
   },
 ) {
   const [resource] = Solid.createResource(
-    () => defer(props.promise),
-    // Simple passthrough - just return the promise for Solid to await
-    (p) => p,
+    () => props.promise,
+    (promise) => defer(promise),
     {
       deferStream: true,
     },
